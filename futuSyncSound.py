@@ -4,10 +4,12 @@ import os
 import json
 from datetime import datetime
 
+#TODO: add reporting
+#TODO: add manual fix for yt-dlp not adding metadata and temp.mp3 files
 mutagenEnabled = None
 try:
     from mutagen.mp3 import MP3
-    from mutagen.id3 import ID3, APIC, error
+    from mutagen.id3 import ID3, APIC, error, TRCK
     mutagenEnabled = True
 except ImportError:
     print("\n Missing mutagen module, album art attachment will not be preformed")
@@ -19,7 +21,7 @@ except ImportError:
     mutagenEnabled = False
 
 
-__version__ = 'first and a half since started versioning now with ugly bootstraps for adding album art via mutagen'
+__version__ = "\nsecond for longer than a second,\nmaybe for even longer, I reckon' \nwe be partyin with the Numbertaker.\nmp3s, wtach me take em \n\nfuccem digits, we b rigid\n\n"
 file = open('links.txt', 'r')
 history = open('history.txt', 'a')
 raw = file.readlines()
@@ -204,6 +206,7 @@ def fallbackMode(unsanitizedLinks):
 
 
 def fullMode(sanitizedLinks):
+    #TODO: Strongly consider downloading one by one
     print('\n#####################links provided:#################################')
     print('\n')
     for link in sanitizedLinks:
@@ -230,32 +233,79 @@ def fullMode(sanitizedLinks):
         print('\n Reassembling output template')
         print('\n')
         outputTemplateArgs = r' -o ' + '"' + artist + r'/' + artist + ' - ' + album + r'/' + '%(title)s.%(ext)s"'
-
         fullstr = 'yt-dlp' + ' ' + link + audioArgs + additionalArgs + outputTemplateArgs + ' --referer ' + link
+        if mutagenEnabled:
+            fullstr += ' --write-info-json -o "infojson:' + artist + r'/' + artist + ' - ' + album + r'/' + '%(title)s"'
         subprocess.run(fullstr, shell=True)
         currentAlbumDir = "./" + artist + "/" + artist + ' - ' + album + r'/'
         if mutagenEnabled:
-            mp3s = getMp3Files(currentAlbumDir)
-            art = getAlbumImage(currentAlbumDir)
+            mp3s = getFilesByExtensions(['.mp3'], currentAlbumDir)
+            art = getFilesByExtensions(['.png','.jpg'],currentAlbumDir)[0]
+            jsons = getFilesByExtensions(['.json'], currentAlbumDir)
             attachAlbumArt(mp3s, art)
+            attachAdditionalMetadata(jsons,mp3s ,currentAlbumDir)
+            trashFilesByExtension(['.json', '.webm'], currentAlbumDir)
 
         appendHistory(artist, album, link)
         successful += 1
         print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n')
     print('\n' + str(successful) + ' links (albums/playlists) downloaded')
 
-def getMp3Files(currentAlbumDir):
-    mp3Files = []
-    for file in os.listdir(currentAlbumDir):
-        if file.endswith(".mp3"):
-            mp3Files.append(currentAlbumDir + '\\' + file)
-    return mp3Files
+def trashFilesByExtension(extensions, currentAlbumDir):
+    files = getFilesByExtensions(extensions, currentAlbumDir)
+    for file in files:
+        os.remove(file)
 
-def getAlbumImage(currentAlbumDir):
-    arts = [f for f in os.listdir(currentAlbumDir) if (f.endswith('.jpg') or f.endswith('.png'))]
-    return (currentAlbumDir + '\\' + arts[0])
+def getFilesByExtensions(extensions, currentAlbumDir):
+    files = []
+    try:
+        for file in os.listdir(currentAlbumDir):
+            for ext in extensions:
+                if file.endswith(ext):
+                    files.append(currentAlbumDir + '\\' + file)
+    except Exception as e:
+        print("\n Exception in getFilesByExtension: " + str(e))
+    return files
 
-#TODO: to dodawanie wszedzie currentAlbumDir jest ugly af musze to ogarnac
+def attachAdditionalMetadata(jsons,mp3s ,currentAlbumDir):
+    mp3Dict = {}
+    trimFront = len(currentAlbumDir) + 1
+    trackNumber = ''
+    totalTracks = ''
+    #pair mp3 & json by name
+    for mp3 in mp3s:
+        for jsonFile in jsons:
+            try:
+                if mp3[trimFront:-len('.mp3')] == jsonFile[trimFront:-len('.info.json')]:
+                    mp3Dict[mp3] = jsonFile
+                    break
+            except Exception as e:
+                print("\n Exception pairing mp3 and JSONs in attachAdditionalMetadata: " + str(e))
+                print("\n For: " + mp3 + ' and ' + jsonFile)
+
+    for mp3, jsonFile in mp3Dict.items():
+        try:
+            JSONhandler = open(jsonFile, 'r', encoding='utf-8', errors = "ignore")
+            JSONraw = JSONhandler.read()
+            JSON = json.loads(JSONraw)
+            trackNumber = str(JSON['playlist_index'])
+            totalTracks = str(JSON['playlist_count'])
+            audio = MP3(mp3)
+            try:
+                if 'TRCK' in audio.tags:
+                    print(f"\n Updating existing track number for {mp3} \n    track {trackNumber} of {totalTracks}")
+                    audio.tags['TRCK'] = TRCK(encoding=3, text=f"{trackNumber}/{totalTracks}")
+                else:
+                    print(f"Adding new track number for {mp3} \n    track {trackNumber} of {totalTracks}")
+                    audio.tags.add(TRCK(encoding =3, text=f"{trackNumber}/{totalTracks}"))
+                audio.save()
+            except Exception as e:
+                print("\n Exception attaching track numbers in attachAdditionalMetadata: " + str(e))
+
+        except Exception as e:
+            print("\n Exception extracting or attaching data from json to mp3 in attachAdditionalMetadata: " + str(e))
+
+
 def attachAlbumArt(mp3s, art):
     for mp3 in mp3s:
         track = MP3(mp3, ID3=ID3)

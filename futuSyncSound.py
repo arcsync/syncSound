@@ -21,7 +21,7 @@ except ImportError:
     mutagenEnabled = False
 
 
-__version__ = "\nsecond for longer than a second,\nmaybe for even longer, I reckon' \nwe be partyin with the Numbertaker.\nmp3s, wtach me take em \n\nfuccem digits, we b rigid\n\n"
+__version__ = "\nsecond for longer than a second,\nmaybe for even longer, I reckon' \nwe be partyin with the Numbertaker.\nmp3s, wtach me take em \n\nfuccem digits, we b rigid\n\nHopefully now with linux support"
 file = open('links.txt', 'r')
 history = open('history.txt', 'a')
 raw = file.readlines()
@@ -35,8 +35,8 @@ audioArgs = ' -x --audio-format mp3 --audio-quality 0 --embed-metadata'
 additionalArgs = ' --windows-filenames --no-warnings --cookies-from-browser firefox'
 artArgs = """ --write-thumbnail --convert-thumbnails jpg --ppa "ThumbnailsConvertor+ffmpeg_o:-c:v png -vf crop='ih'" """
 firstTrackOnly = ' --playlist-items 1 --skip-download --no-warnings'
-outputTemplateArgs = r' -o "%(uploader)s/%(uploader)s - %(playlist)s/%(title)s.%(ext)s"'
-outputTemplateArgsExtended = r' -o "pl_thumbnail:%(uploader)s/%(uploader)s - %(playlist)s/cover.%(ext)s" -o "thumbnail:"'
+outputTemplateArgs = ' -o "' + os.path.join("%(uploader)s", "%(uploader)s - %(playlist)s", "%(title)s.%(ext)s") + '"'
+outputTemplateArgsExtended = r' -o "pl_thumbnail:' + os.path.join("%(uploader)s", "%(uploader)s - %(playlist)s", "cover.%(ext)s")+ '"' + " -o thumbnail:"
 forbiddenSuffix = (' ', '.')
 forbiddenChars = (r'<', r'>', r':', r'"', '\\', r'/', r'|', r'?', r'*')
 forbiddenNames = ('CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
@@ -103,10 +103,10 @@ def getMetadataViaJSON(link):
     print('\n')
     print('\n Getting album art')  
     print('\n')  
-    newpath = r'./' + artist + r'/' + artist + ' - ' + album
+    newpath = os.path.join('.', artist, artist + ' - ' + album)
     os.makedirs(newpath, exist_ok = True)
     artData = requests.get(albumArtLink).content
-    artSaveDir = newpath + r'/' + 'folder.png'
+    artSaveDir = os.path.join(newpath, 'folder.png')
     with open(artSaveDir, 'wb') as Art:
         Art.write(artData)
     return artist, album, success
@@ -226,18 +226,21 @@ def fullMode(sanitizedLinks):
 
         artist, album, getMetadataWasSuccesfull = getMetadataViaJSON(link)
         if not getMetadataWasSuccesfull:
-            print("\n Metadata could not be retrieved")
+            print("\n Metadata could not be retrwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwieved")
             print("\n Skipping this in fullQueue")
             break
 
         print('\n Reassembling output template')
         print('\n')
-        outputTemplateArgs = r' -o ' + '"' + artist + r'/' + artist + ' - ' + album + r'/' + '%(title)s.%(ext)s"'
+        outputTemplateArgs = ' -o "' + os.path.join('.', artist, artist + ' - ' + album, '%(title)s.%(ext)s') + '"'
+        print(f'\nReassembled template: {outputTemplateArgs}')
         fullstr = 'yt-dlp' + ' ' + link + audioArgs + additionalArgs + outputTemplateArgs + ' --referer ' + link
+        print(f'\nFullstr: {fullstr}')
         if mutagenEnabled:
-            fullstr += ' --write-info-json -o "infojson:' + artist + r'/' + artist + ' - ' + album + r'/' + '%(title)s"'
+            fullstr += ' --write-info-json -o "infojson:' + os.path.join(artist, artist + ' - ' + album, "%(title)s") + '"'
+            print(f'\nMutagen enabled, appended fullstr. \nNew: {fullstr}')
         subprocess.run(fullstr, shell=True)
-        currentAlbumDir = "./" + artist + "/" + artist + ' - ' + album + r'/'
+        currentAlbumDir = os.path.join('.', artist, artist + ' - ' + album)
         if mutagenEnabled:
             mp3s = getFilesByExtensions(['.mp3'], currentAlbumDir)
             art = getFilesByExtensions(['.png','.jpg'],currentAlbumDir)[0]
@@ -245,7 +248,7 @@ def fullMode(sanitizedLinks):
             attachAlbumArt(mp3s, art)
             attachAdditionalMetadata(jsons,mp3s ,currentAlbumDir)
             trashFilesByExtension(['.json', '.webm'], currentAlbumDir)
-
+        trashFilesByExtension(['.temp.mp3'], currentAlbumDir)
         appendHistory(artist, album, link)
         successful += 1
         print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n')
@@ -262,7 +265,7 @@ def getFilesByExtensions(extensions, currentAlbumDir):
         for file in os.listdir(currentAlbumDir):
             for ext in extensions:
                 if file.endswith(ext):
-                    files.append(currentAlbumDir + '\\' + file)
+                    files.append(os.path.join(currentAlbumDir, file))
     except Exception as e:
         print("\n Exception in getFilesByExtension: " + str(e))
     return files

@@ -84,11 +84,20 @@ def getMetadataViaJSON(link):
     albumJSONraw = albumJSONhandler.readlines()
     trackJSON = json.loads(trackJSONraw[0])
     albumJSON = json.loads(albumJSONraw[0])    
-    artist = trackJSON['artists'][0].strip()
-    album = trackJSON['album'].strip()
-    albumArtLink = albumJSON['thumbnails'][1]['url']
-    if albumArtLink is None:
-        albumArtLink = albumJSON['thumbnails'][0]['url']
+    try:    
+        artist = trackJSON['artists'][0].strip()
+    except Exception as e:
+        artist = trackJSON['uploader'].strip()
+    try:
+        album = trackJSON['album'].strip()
+    except Exception as e:
+        album = trackJSON['playlist'].strip()
+    try:
+        albumArtLink = albumJSON['thumbnails'][1]['url']
+        if albumArtLink is None:
+            albumArtLink = albumJSON['thumbnails'][0]['url']
+    except Exception as e:
+        print('\n Unable to get album art from JSON')
     trackJSONhandler.close()
     albumJSONhandler.close()
     os.remove(str(i) + '.json.info.json')
@@ -316,19 +325,21 @@ def attachAlbumArt(mp3s, art):
             track.add_tags()
         except error:
             pass
-        with open(art, "rb") as img:
-            track.tags.add(
-                APIC(
-                    encoding=3,
-                    mime='image/jpeg' if art.endswith('.jpg') else 'image/png',
-                    type=3,
-                    desc='Cover',
-                    data=img.read()
+        try:
+            with open(art, "rb") as img:
+                track.tags.add(
+                    APIC(
+                        encoding=3,
+                        mime='image/jpeg' if art.endswith('.jpg') else 'image/png',
+                        type=3,
+                        desc='Cover',
+                        data=img.read()
+                    )
                 )
-            )
-        track.save()
-        print("\n album art added to " + mp3)
-
+            track.save()
+            print("\n album art added to " + mp3)
+        except Exception as e:
+            print('\n Unable to attach album art.')
 def main():
     print('\n Version: ' + __version__)
     if not realityCheck():

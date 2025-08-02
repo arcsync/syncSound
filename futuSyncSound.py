@@ -32,7 +32,7 @@ i = 0
 
 #region STRING VARS
 audioArgs = ' -x --audio-format mp3 --audio-quality 0 --embed-metadata'
-additionalArgs = ' --windows-filenames --no-warnings --cookies-from-browser firefox'
+additionalArgs = ' --windows-filenames --no-warnings --cookies-from-browser firefox -R 5'
 artArgs = """ --write-thumbnail --convert-thumbnails jpg --ppa "ThumbnailsConvertor+ffmpeg_o:-c:v png -vf crop='ih'" """
 firstTrackOnly = ' --playlist-items 1 --skip-download --no-warnings'
 outputTemplateArgs = ' -o "' + os.path.join("%(uploader)s", "%(uploader)s - %(playlist)s", "%(title)s.%(ext)s") + '"'
